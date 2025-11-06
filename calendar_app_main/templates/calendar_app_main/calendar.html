@@ -1,137 +1,323 @@
-{% load dict_extras %}  
-<!-- 自作テンプレートタグ（dict_extras.py）を読み込む
-     → 辞書(event_dict)からキー（day.day）で値を取り出すためのフィルタを使うため -->
+<!-- Djangoの「見た目」を担当するHTMLテンプレート。views.py で作ったデータを画面に表示 -->
+{% load dict_extras %}  <!--Django独自タグの読み込み-->
 
 <!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8" />
-    <title>{{ year }}年{{ month }}月のカレンダー</title> <!-- ページタイトルに年と月を表示 -->
+    <title>{{ year }}年{{ month }}月のカレンダー</title>
 
     <style>
-        /* 全体のデザイン設定 */
-        body {
-            font-family: "Segoe UI", sans-serif;  /* フォントを指定 */
-            background-color: #f8f8ff;            /* 背景色を淡いグレーに設定 */
-            color: #333;                           /* 文字色を濃いグレーに設定 */
-            text-align: center;                    /* 全体を中央寄せにする */
-        }
+    /* ===============================
+        カレンダー全体の基本スタイル
+    =============================== */
+    body {
+        font-family: "Segoe UI", sans-serif;
+        background-color: #f8f8ff;
+        color: #333;
+        text-align: center;
+    }
 
-        /* カレンダー表のデザイン */
-        table {
-            border-collapse: collapse;             /* 枠線の重なりをなくす */
-            margin: 20px auto;                     /* テーブルを中央に配置 */
-            background-color: white;               /* 背景を白に設定 */
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);  /* 薄い影をつけて立体感を出す */
-        }
+    h1 {
+        margin-top: 20px;
+    }
 
-        /* 各セル（th, td）の共通デザイン */
-        th, td {
-            border: 1px solid #ccc;                /* 灰色の枠線を付ける */
-            padding: 8px;                          /* 内側の余白 */
-            width: 50px; height: 60px;             /* 各マスの大きさを指定 */
-            text-align: center;                    /* 中央揃え */
-            vertical-align: top;                   /* 上寄せにする */
-        }
+    a {
+        text-decoration: none;
+        color: #0078d7;
+        font-weight: bold;
+    }
+    a:hover {
+        text-decoration: underline;
+    }
 
-        th { background-color: #f0f0f0; }          /* 曜日ヘッダー部分の背景色 */
+    /* ===============================
+         カレンダー表
+    =============================== */
+    table {
+        border-collapse: collapse;
+        margin: 20px auto;
+        background-color: white;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
 
-        /* 今日の日付の強調表示 */
-        .today {
-            background-color: #fff176;             /* 黄色で強調 */
-            font-weight: bold;                     /* 太字にする */
-            border-radius: 6px;                    /* 角を少し丸くする */
-        }
+    th, td {
+        border: 1px solid #ccc;
+        text-align: center;
+        vertical-align: middle;
+        padding: 4px;
+    }
 
-        /* リンクのデザイン（予定追加リンクなど） */
-        a {
-            text-decoration: none;                 /* 下線を消す */
-            color: #0078d7;                        /* 青色の文字 */
-            font-weight: bold;                     /* 太字にする */
-        }
+    th {
+        background-color: #f0f0f0;
+        height: 40px;
+        font-size: 14px;
+        font-weight: bold;
+        text-align: center;
+        vertical-align: middle;
+    }
 
-        /* 予定タイトル部分の見た目 */
-        .event-title {
-            font-size: 12px;                       /* 文字を小さめにする */
-            color: #0078d7;                        /* 文字色を青にする */
-            margin-top: 3px;                       /* 上に少し余白 */
-            white-space: nowrap;                   /* 折り返しを防ぐ */
-            overflow: hidden;                      /* はみ出た部分を非表示 */
-            text-overflow: ellipsis;               /* はみ出た部分を「…」で省略 */
-            max-width: 80px;                       /* 最大幅を指定 */
-            display: block;                        /* ブロック要素に変更 */
-        }
+    td {
+        height: 80px;
+        font-size: 16px;
+        text-align: left;
+        position: relative;
+        padding: 4px 6px;
+    }
 
-        /* イベントをバーで表示するためのクラス（未完成実装用） */
-        .event-bar {
-            position: relative;                    /* 相対配置（幅計算に使う） */
-            border-radius: 4px;                    /* 角を丸くする */
-            height: 18px;                          /* 高さを指定 */
-            margin-top: 4px;                       /* 上に少し余白 */
-            overflow: hidden;                      /* 内容のはみ出し防止 */
-            line-height: 18px;                     /* テキストを中央に配置 */
-            font-size: 12px;                       /* 小さめ文字 */
-        }
+    .calendar-container {
+        position: relative;
+        width: 700px;
+        margin: 20px auto;
+    }
 
-        /* バー内の文字（イベント名など） */
-        .event-label {
-            color: white;                          /* 白文字 */
-            display: block;                        /* ブロック要素にする */
-            text-decoration: none;                 /* 下線を消す */
-            padding: 0 6px;                        /* 左右に余白 */
-        }
+    .calendar-table {
+        width: 700px;
+        table-layout: fixed;
+        border-collapse: collapse;
+        background-color: white;
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+
+    .calendar-table td {
+        position: relative;
+        height: 100px;
+        vertical-align: top;
+    }
+
+    .calendar-table th {
+        background-color: #f0f0f0 ;
+        height: 60px ;
+        font-size: 14px ;
+        font-weight: bold;
+        text-align: center ;
+        vertical-align: middle ;
+    }
+
+    .calendar-table td {
+        border: 1px solid #ccc;
+        width: 100px;
+        height: 100px;
+        text-align: left;
+        vertical-align: top;
+        position: relative;
+        padding: 0;
+    }
+
+    .day-number {
+        position: absolute;
+        top: 6px;
+        left: 8px;
+        font-size: 20px;
+        font-weight: bold;
+        z-index: 15;
+        color: #333;
+        background-color: white;
+        padding: 2px 4px;
+        border-radius: 4px;
+    }
+
+    /* ===============================
+         イベントバー共通設定
+    =============================== */
+    .event-bar,
+    .event-bar-long {
+        position: absolute;
+        background-color: rgba(0, 120, 215, 0.25);
+        border: 1px solid #0078d7;
+        border-radius: 4px;
+        text-align: center;
+        color: #004578;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        height: 18px;
+        font-size: 12px;
+    }
+
+    .event-bar {
+        z-index: 5;
+    }
+
+    .event-bar-long {
+        z-index: 10;
+    }
+
+    .today {
+        background-color: #fff176;
+        font-weight: bold;
+        border-radius: 6px;
+    }
+
+    .event-label {
+        font-size: 14px;
+        color: #004578;
+        text-decoration: none;
+    }
+
+    .event-more {
+        position: absolute;
+        left: 6px;
+        font-size: 12px;
+        color: #333;
+    }
     </style>
 </head>
 
 <body>
-    <h1>{{ year }}年{{ month }}月のカレンダー</h1> <!-- 見出しに年・月を表示 -->
+    <h1>{{ year }}年{{ month }}月のカレンダー</h1>
+    {% now "Y" as current_year %}
+    {% now "n" as current_month %}
+    {% now "j" as current_day %}
 
-    <!-- 前月・次月へのリンク -->
-    <div>
+    <div class="calendar-nav">
         <a href="{% url 'calendar_app_main:calendar_by_month' year=prev_year month=prev_month %}">＜ 前の月</a> |
+
+        {% comment %}日表示リンクの条件分岐{% endcomment %}
+        {% if year == current_year and month == current_month %}
+            <!-- 当月なら今日の日に飛ぶ -->
+            <a href="{% url 'calendar_app_main:calendar_by_day' year=current_year month=current_month day=current_day %}">日表示</a> |
+        {% else %}
+            <!-- 違う月なら1日へ -->
+            <a href="{% url 'calendar_app_main:calendar_by_day' year=year month=month day=1 %}">日表示</a> |
+            {% endif %}
+
         <a href="{% url 'calendar_app_main:calendar_by_month' year=next_year month=next_month %}">次の月 ＞</a>
+        <a href="{% url 'calendar_app_main:calendar_by_month' year=current_year month=current_month %}">今月に戻る</a>
     </div>
 
-    <!-- カレンダー本体 -->
-    <table>
-        <thead>
-            <tr>
-                {% for day in week_days %} <!-- 曜日見出しを1週間分繰り返し表示 -->
-                    <th>{{ day }}</th>
-                {% endfor %}
-            </tr>
-        </thead>
-
-        <tbody>
-            {% for week in weeks %} <!-- 各週ごとの処理 -->
+    <div class="calendar-wrapper">
+        <table class="calendar-table">
+            <thead>
                 <tr>
-                    {% for day in week %} <!-- 各日のセルを生成 -->
-                        {% if day.day %} <!-- 0以外（実在する日）なら -->
-                            {% if day.day == today %}
-                                <td class="today" style="color:{{ day.color }}"> <!-- 今日なら強調表示 -->
-                            {% else %}
-                                <td style="color:{{ day.color }}"> <!-- 通常のセル -->
-                            {% endif %}
-                                    <!-- 日付クリックで予定追加ページへ遷移 -->
+                    {% for day in week_days %}
+                        <th>{{ day }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+
+            <tbody>
+                {% for week in weeks %}
+                    <tr>
+                        {% for day in week %}
+                            {% if day.day %}
+                                {% if day.day == today %}
+                                    <td class="today" style="color:{{ day.color }}">
+                                {% else %}
+                                    <td style="color:{{ day.color }}">
+                                {% endif %}
+
+                                    <!-- 日付 -->
                                     <a href="{% url 'calendar_app_main:add_event' year=year month=month day=day.day %}" style="color:{{ day.color }}">
                                         {{ day.day }}
                                     </a>
 
-                                   {% for event in event_dict|get_item:day.day %} <!-- その日に登録されたイベントをすべて表示 -->
-                                        <div class="event-title">
-                                            • <a href="{% url 'calendar_app_main:event_detail' event.id %}" style="color:#0078d7;">
-                                                {{ event.title }} <!-- イベントタイトルを表示 -->
-                                            </a>
-                                        </div>
-                                    {% endfor %}
+                                    <!-- イベント描画部分 -->
+                                    {% with events=event_dict|get_item:day.day %}
+                                        {% if events %}
+                                            {% for event in events %}
+                                                {% if event.span > 1 %}
+                                                    <div class="event-bar-long"
+                                                        style="
+                                                            background-color: {{ event.color }};
+                                                            width: {{ event.span_px }}px;
+                                                            top: calc(20px + {{ event.order|default:0 }} * 20px);
+                                                            left: 2%;
+                                                            position: absolute;
+                                                            z-index: {{ event.z_index|default:10 }};
+                                                        ">
+                                                        {% if event.id %}
+                                                            <a href="{% url 'calendar_app_main:event_detail' event.id %}"
+                                                            class="event-label"
+                                                            style="display:block; color:#004578; text-decoration:none;">
+                                                                {{ event.title }}
+                                                            </a>
+                                                        {% else %}
+                                                            <span class="event-label" style="color:#004578;">
+                                                                {{ event.title }}
+                                                            </span>
+                                                        {% endif %}
+                                                    </div>
+                                                {% else %}
+                                                    <div class="event-bar"
+                                                        style="
+                                                            background-color: {{ event.color }};
+                                                            width: 96%;
+                                                            left: 2%;
+                                                            top: calc(30px + {{ event.order|default:0 }} * 26px);
+                                                            position: absolute;
+                                                            z-index: 20;
+                                                        ">
+                                                        {% if event.id %}
+                                                            <a href="{% url 'calendar_app_main:event_detail' event.id %}"
+                                                            class="event-label"
+                                                            style="display:block; color:#004578; text-decoration:none;">
+                                                                {{ event.title }}
+                                                            </a>
+                                                        {% else %}
+                                                            <span class="event-label" style="color:#004578;">
+                                                                {{ event.title }}
+                                                            </span>
+                                                        {% endif %}
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+
+                                        {% endif %}
+                                    {% endwith %}
                                 </td>
-                        {% else %}
-                            <td></td> <!-- 空欄（前月・次月の余白） -->
-                        {% endif %}
+                            {% else %}
+                                <td></td>
+                            {% endif %}
+                        {% endfor %}
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <!-- カレンダーの一番下（ループの外側）に追加 -->
+        <div id="search-container"
+            style="position: fixed; bottom: 0; left: 0; width: 100%; background: #f9f9f9;
+                    padding: 10px; border-top: 1px solid #ccc; z-index: 10;">
+
+            <form method="GET" action="" style="text-align: center;">
+                <input type="text" name="q" placeholder="予定を検索..." value="{{ query }}"
+                    style="width: 60%; padding: 5px;">
+                <button type="submit">検索</button>
+            </form>
+        </div>
+
+        <!-- 固定バーの下（通常フローの最後）に検索結果リスト -->
+        {% if search_results %}
+            <div id="search-results" style="padding: 15px; background: #fff; border-top: 1px solid #ccc;">
+                <h3>検索結果（{{ search_results|length }}件）</h3>
+                <ul style="list-style: none; padding-left: 0;">
+                    {% for event in search_results %}
+                        <li style="margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                            <!-- タイトルをクリックで詳細ページへ -->
+                            <a href="{% url 'calendar_app_main:event_detail' event.id %}"
+                            style="font-weight: bold; font-size: 16px; color: #007bff; text-decoration: none;">
+                                {{ event.title }}
+                            </a>
+                            <br>
+                            <!-- 日付を日本語形式で -->
+                            期間： {{ event.start_date|date:"Y年n月j日" }} ～ {{ event.end_date|date:"Y年n月j日" }}
+                            <br>
+                            <!-- 詳細（空欄でなければ） -->
+                            {% if event.detail %}
+                                <div style="margin-top: 4px; color: #555;">{{ event.detail }}</div>
+                            {% endif %}
+                        </li>
                     {% endfor %}
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+                </ul>
+            </div>
+        {% elif query %}
+            <div id="search-results" style="padding: 15px; background: #fff; border-top: 1px solid #ccc;">
+                <p>該当する予定はありません。</p>
+            </div>
+{% endif %}
+    </form>
+</div>
+    </div>
 </body>
-  </html>
+</html>
