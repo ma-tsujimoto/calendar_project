@@ -1,0 +1,213 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ year }}年{{ month }}月{{ day }}日の予定</title>
+
+    <style>
+    /* ===============================
+        日表示レイアウト全体
+    =============================== */
+    body {
+        font-family: "Segoe UI", sans-serif;
+        background-color: #f8f8ff;
+        color: #333;
+        text-align: center;
+        margin: 0;
+    }
+
+    h1 {
+        margin-top: 20px;
+        font-size: 24px;
+    }
+
+    .nav-links {
+        margin: 10px 0;
+    }
+
+    a {
+        text-decoration: none;
+        color: #0078d7;
+        font-weight: bold;
+    }
+
+    a:hover {
+        text-decoration: underline;
+    }
+
+    /* ===============================
+        カレンダー（時間軸＋予定）
+    =============================== */
+    .day-calendar {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start; /* ← 左右の高さ揃えを防止 */
+        width: 90%;
+        max-width: 900px;
+        margin: 20px auto;
+        border: 1px solid #ccc;
+        border-radius: 8px;
+        background-color: #fff;
+        position: relative;
+        overflow-y: scroll;
+        height: 1440px; /* ← 24時間分 * 60px に近づける */
+    }
+
+    /* 時間軸 */
+    .time-column {
+        width: 60px;
+        border-right: 1px solid #ddd;
+        background-color: #fafafa;
+    }
+
+    /* 時間セルの設定*/
+    .time-cell {         
+        height: 60px; /* 1時間あたりの高さ */
+        line-height: 60px;       /* 縦方向をピッタリ中央に */
+        font-size: 12px;
+        color: #666;
+        text-align: right;
+        padding-right: 6px;
+        box-sizing: border-box;
+        border-bottom: 1px solid #eee;
+        width: 60px;
+        border-right: 1px solid #ddd;
+        background-color: #fafafa;
+    }
+
+    /* 予定表示エリア */
+    .event-column {
+        width: 60px;
+        border-right: 2px solid #ccc;  /* ← 太くして見えるように変更 */
+        flex: 1;
+        position: relative;
+        background-color: #fff;
+        box-sizing: border-box;        /* ← はみ出し防止 */
+    }
+
+    .hour-slot {
+        height: 60px;
+        border-bottom: 1px solid #f2f2f2;
+        box-sizing: border-box;  /* ← 高さズレ防止 */
+    }
+
+    /* ===============================
+        イベントバー
+    =============================== */
+    .event-bar {
+        position: absolute;
+        left: 70px;
+        right: 10px;
+        border-radius: 6px;
+        padding: 4px 6px;
+        color: #fff;
+        font-size: 20px;
+        overflow: hidden;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    .event-label {
+        display: block;
+        font-weight: 600;
+        color: #fff;
+    }
+
+    .today-highlight {
+        background-color: #fff59d;
+    }
+
+    .all-day-section {
+    margin: 0 auto;
+    width: 90%;
+    max-width: 900px;
+    background-color: #f3f6ff;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    padding: 8px;
+    text-align: left;
+}
+
+    .all-day-title {
+        font-weight: bold;
+        color: #555;
+        margin-bottom: 6px;
+    }
+
+    .all-day-event {
+        display: inline-block;
+        margin: 3px;
+        padding: 4px 8px;
+        border-radius: 4px;
+        color: white;
+        font-size: 13px;
+        font-weight: 500;
+    }
+
+    </style>
+</head>
+
+<body>
+    <h1>{{ year }}年{{ month }}月{{ day }}日の予定</h1>
+
+    <div class="nav-links">
+        <a href="{% url 'calendar_app_main:calendar_by_day' year=prev_year month=prev_month day=prev_day %}">＜ 前の日</a> |
+        <a href="{% url 'calendar_app_main:calendar_by_month' year=year month=month %}">月表示へ</a> |
+        <a href="{% url 'calendar_app_main:calendar_by_day' year=next_year month=next_month day=next_day %}">次の日 ＞</a>
+        
+        {% now "Y" as current_year %}
+        {% now "n" as current_month %}
+        {% now "j" as current_day %}
+        <!-- 今日に戻るボタン -->
+        <a href="{% url 'calendar_app_main:calendar_by_day' year=current_year month=current_month day=current_day %}"
+        style="background:#0078d7; color:#fff; padding:4px 8px; border-radius:4px; text-decoration:none;">
+            本日へ戻る</a>
+    </div>
+
+    <!-- 日表示カレンダー -->
+    <div class="day-calendar">
+        <!-- 時間軸 -->
+        <div class="time-column">
+            {% for hour in hours %}
+                <div class="time-cell">{{ hour }}:00</div>
+            {% endfor %}
+        </div>
+
+        <!-- イベント表示エリア -->
+        <div class="event-column">
+            {% for hour in hours %}
+                <div class="hour-slot"></div>
+            {% endfor %}
+
+            <!-- イベントバー（必ず event-column の中に！） -->
+            {% for event in events %}
+                <div class="event-bar"
+                    style="
+                        top: {{ event.start_hour|add:0 }}px;
+                        height: {{ event.duration_minutes|default:60 }}px;
+                        left: calc(0px + ({{ event.column_index }} * (92% / {{ event.total_columns }})));
+                        width: calc((90% / {{ event.total_columns }}) - 5px);
+                        background-color: {{ event.color }};
+                    ">
+                    <a href="{% url 'calendar_app_main:event_detail' event.id %}" class="event-label">
+                        {{ event.title }}
+                    </a>
+                    <div>{{ event.start_time|time:"H:i" }} - {{ event.end_time|time:"H:i" }}</div>
+                </div>
+            {% endfor %}
+
+            {% if all_day_events %}
+            <div class="all-day-section">
+                <div class="all-day-title">終日・時間未定</div>
+                {% for event in all_day_events %}
+                    <div class="all-day-event" style="background-color: {{ event.color }};">
+                        <a href="{% url 'calendar_app_main:event_detail' event.id %}" class="event-label">
+                            {{ event.title }}
+                        </a>
+                    </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
